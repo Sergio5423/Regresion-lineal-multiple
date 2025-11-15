@@ -1,4 +1,6 @@
+from sklearn.linear_model import LinearRegression
 from tkinter import Canvas, ttk
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import joblib
 import regresionLineal as rl
@@ -177,59 +179,88 @@ def almacenarModelo(modelo, carpeta_destino="Modelos"):
     text_entrenamiento.insert("end", f"Modelo guardado en: {ruta_archivo}\n")
 
 def entrenar():
-    global Y_test, Yr_test, Y_train, Yr_train, modelo
+    global Y_test, Yr_test, Y_train, Yr_train, modelo_rl, modelo_rf
 
-    try:
-        
-        # Entrenar con el conjunto de entrenamiento
-        metrics = rl.entrenamiento_regresion_lineal(X_train, Y_train)
+    modelo_seleccionado = seleccion_modelo.get()
 
-        # Acceso a métricas
-        modelo = metrics["modelo"]
-        EG_train = metrics["r2_train"]
-        EG_test = metrics["r2_test"]
-        MAE_train = metrics["mae_train"]        
-        MAE_test = metrics["mae_test"]
-        RMSE_train = metrics["rmse_train"]
-        RMSE_test = metrics["rmse_test"]                
-        Y_train = metrics["y_train"]
-        Yr_train = metrics["Yr_train"]
-        Y_test = metrics["y_test"]
-        Yr_test = metrics["Yr_test"]
+    if modelo_seleccionado == "Regresión Lineal Múltiple":
 
-        # Mostrar error de entrenamiento
-        lblError.config(text=(
-            f"EG Entrenamiento: {EG_train:.4f} \n"
-            f"EG Prueba: {EG_test:.4f}"
-        ), foreground="blue")
+        try:
+            text_entrenamiento.insert("end", "Entrenando Regresión Lineal Múltiple...\n")
 
-        lblMAE.config(text=(
-            f"MAE Entrenamiento: {MAE_train:.4f} \n"
-            f"MAE Prueba: {MAE_test:.4f}"
-        ), foreground="darkgreen")
+            # Entrenar modelo directamente
+            modelo_rl = LinearRegression()
+            modelo_rl.fit(X_train, Y_train)
 
-        lblRMSE.config(text=(
-            f"RMSE Entrenamiento: {RMSE_train:.4f} \n"
-            f"RMSE Prueba: {RMSE_test:.4f}"
-        ), foreground="purple")
+            # Predicciones
+            Yr_train = modelo_rl.predict(X_train)
+            Yr_test = modelo_rl.predict(X_test)
 
-        text_entrenamiento.insert("end", f"Entrenamiento completado.\n")
+            # Métricas
+            EG_train = r2_score(Y_train, Yr_train)
+            EG_test = r2_score(Y_test, Yr_test)
 
-        coeficientes = modelo.coef_
-        intercepto = modelo.intercept_
-        
-        text_entrenamiento.insert("end", f"Coeficientes: {coeficientes}\n")
+            MAE_train = mean_absolute_error(Y_train, Yr_train)
+            MAE_test = mean_absolute_error(Y_test, Yr_test)
 
-        text_entrenamiento.insert("end", f"Intercepto: {intercepto}\n")           
+            RMSE_train = np.sqrt(mean_squared_error(Y_train, Yr_train))
+            RMSE_test = np.sqrt(mean_squared_error(Y_test, Yr_test))
 
-        graficar_hist_residuales(Y_train, Yr_train)
-        graficar_residuales(Y_train, Yr_train)
-        graficar_dispersion(Y_train, Yr_train)
+            # Mostrar resultados
+            lblError.config(text=f"EG Entrenamiento: {EG_train:.4f} \nEG Prueba: {EG_test:.4f}", foreground="blue")
+            lblMAE.config(text=f"MAE Entrenamiento: {MAE_train:.4f} \nMAE Prueba: {MAE_test:.4f}", foreground="darkgreen")
+            lblRMSE.config(text=f"RMSE Entrenamiento: {RMSE_train:.4f} \nRMSE Prueba: {RMSE_test:.4f}", foreground="purple")
 
-        almacenarModelo(modelo)
+            text_entrenamiento.insert("end", "Entrenamiento completado.\n")
+            text_entrenamiento.insert("end", f"Coeficientes: {modelo_rl.coef_}\n")
+            text_entrenamiento.insert("end", f"Intercepto: {modelo_rl.intercept_}\n")
 
-    except Exception as e:
-        print(f"Error durante el entrenamiento: {e}")
+            # Graficar
+            graficar_hist_residuales(Y_train, Yr_train)
+            graficar_residuales(Y_train, Yr_train)
+            graficar_dispersion(Y_train, Yr_train)
+
+            almacenarModelo(modelo_rl)
+
+        except Exception as e:
+            text_entrenamiento.insert("end", f"Error durante el entrenamiento RL: {e}\n")
+
+    elif modelo_seleccionado == "Random Forest Regressor":
+        try:
+            text_entrenamiento_RF.insert("end", "Entrenando Random Forest Regressor...\n")
+
+            modelo_rf = RandomForestRegressor(
+                n_estimators=200,
+                max_depth=12,
+                random_state=42,
+                n_jobs=-1
+            )
+            modelo_rf.fit(X_train, Y_train)
+
+            Yr_train = modelo_rf.predict(X_train)
+            Yr_test = modelo_rf.predict(X_test)
+
+            EG_train = r2_score(Y_train, Yr_train)
+            EG_test = r2_score(Y_test, Yr_test)
+            MAE_train = mean_absolute_error(Y_train, Yr_train)
+            MAE_test = mean_absolute_error(Y_test, Yr_test)
+            RMSE_train = np.sqrt(mean_squared_error(Y_train, Yr_train))
+            RMSE_test = np.sqrt(mean_squared_error(Y_test, Yr_test))
+
+            lblErrorRF.config(text=f"EG Entrenamiento: {EG_train:.4f} \nEG Prueba: {EG_test:.4f}", foreground="blue")
+            lblMAERF.config(text=f"MAE Entrenamiento: {MAE_train:.4f} \nMAE Prueba: {MAE_test:.4f}", foreground="darkgreen")
+            lblRMSERF.config(text=f"RMSE Entrenamiento: {RMSE_train:.4f} \nRMSE Prueba: {RMSE_test:.4f}", foreground="purple")
+
+            text_entrenamiento_RF.insert("end", "Entrenamiento completado.\n")
+
+            graficar_hist_residuales_RF(Y_train, Yr_train)
+            graficar_residuales_RF(Y_train, Yr_train)
+            graficar_dispersion_RF(Y_train, Yr_train)
+
+            almacenarModelo(modelo_rf)
+
+        except Exception as e:
+            text_entrenamiento_RF.insert("end", f"Error durante el entrenamiento RF: {e}\n")
 
 def calcular_metricas(Yd, Yr):
     errores = [abs(y1 - y2) for y1, y2 in zip(Yd, Yr)]
@@ -238,36 +269,72 @@ def calcular_metricas(Yd, Yr):
     RMSE = (sum((y1 - y2)**2 for y1, y2 in zip(Yd, Yr)) / len(Yd))**0.5
     return EG, MAE, RMSE
 
+def procesar_entrada(texto):
+    # Diccionario de barrios
+    codigos_barrios = {
+        "La Nevada": 0,
+        "Los Cortijos": 1,
+        "Los Fundadores": 2,
+        "Novalito": 3,
+        "Rosario": 4,
+        "Villa Miriam": 5
+    }
+
+    valores = [x.strip() for x in texto.split(",")]
+    if len(valores) != 10:
+        raise ValueError("Número de entradas incorrecto. Se esperaban 10 valores.")
+
+    area = float(valores[0])
+    habitaciones = float(valores[1])
+    banos = float(valores[2])
+    antiguedad = float(valores[3])
+    estrato = float(valores[4])
+    parqueadero = float(valores[5])
+    ascensor = float(valores[6])
+    barrio = codigos_barrios[valores[7]]
+    cercania = float(valores[8])
+    tasa_desempleo = float(valores[9])
+
+    entrada = [area, habitaciones, banos, antiguedad, estrato,
+               parqueadero, ascensor, barrio, cercania, tasa_desempleo]
+
+    return entrada, valores[7]  # devuelve también el nombre del barrio
+
+
 def simular():
-    global modelo
+    global modelo_rl, modelo_rf
+
+    modelo_seleccionado = seleccion_modelo.get()
+    texto = inpSimulacion.get().strip()
+
+    if not texto:
+        textSimulacion.insert("end", "Por favor ingresa valores separados por coma.\n")
+        return
 
     try:
-        texto = inpSimulacion.get().strip()
-
-        if not texto:
-            textSimulacion.insert("end", "Por favor ingresa valores separados por coma.\n")
-            return
-
-        # Convertir entrada a lista de floats
-        entrada = [float(x.strip()) for x in texto.split(",")]
-
-        # Validar que el modelo esté cargado
-        if modelo is None:
-            textSimulacion.insert("end", "No hay modelo cargado o entrenado.\n")
-            return
-
-        # Convertir a formato 2D para scikit-learn
+        entrada, barrio_nombre = procesar_entrada(texto)
         entrada_array = np.array(entrada).reshape(1, -1)
 
-        # Predicción con regresión lineal múltiple
-        resultado = modelo.predict(entrada_array)[0]
+        if modelo_seleccionado == "Regresión Lineal Múltiple":
+            if modelo_rl is None:
+                textSimulacion.insert("end", "No hay modelo RL cargado o entrenado.\n")
+                return
+            resultado = modelo_rl.predict(entrada_array)[0]
+            textSimulacion.insert("end", f"Entrada: {entrada}\nBarrio: {barrio_nombre}\nPredicción (RL): {resultado:.2f}\n\n")
 
-        textSimulacion.insert("end", f"Entrada: {entrada}\nPredicción: {resultado:.4f}\n\n")
+        elif modelo_seleccionado == "Random Forest Regressor":
+            if modelo_rf is None:
+                textSimulacion.insert("end", "No hay modelo RF cargado o entrenado.\n")
+                return
+            resultado = modelo_rf.predict(entrada_array)[0]
+            textSimulacion.insert("end", f"Entrada: {entrada}\nBarrio: {barrio_nombre}\nPredicción (RF): {resultado:.2f}\n\n")
 
-    except ValueError:
-        textSimulacion.insert("end", "Error: Asegúrate de ingresar solo números separados por coma.\n\n")
+    except ValueError as ve:
+        textSimulacion.insert("end", f"Error: {ve}\n\n")
     except Exception as e:
         textSimulacion.insert("end", f"Error durante la simulación: {e}\n\n")
+
+
 
 
 def simular_prueba():
@@ -344,19 +411,114 @@ def actualizar_graficas_simulacion(Yd, Yr):
     axS3.plot([min(Yd), max(Yd)], [min(Yd), max(Yd)], color="red", linestyle="--")
     canvasS3.draw()
 
-
-
 def reiniciarModelo():
-    global w, centros
+    global modelo, Y_train, Yr_train, Y_test, Yr_test
+    global ax1, ax2, ax3, canvas1, canvas2, canvas3
+    global axRF1, axRF2, axRF3, canvasRF1, canvasRF2, canvasRF3
+    global axS1, axS2, axS3, canvasS1, canvasS2, canvasS3
 
-    w = None
-    centros = []
+    # Reiniciar modelo y datos
+    modelo = None
+    Y_train, Yr_train, Y_test, Yr_test = None, None, None, None
 
-    # Limpiar consola
+    # Limpiar consola principal
     text_area.delete("1.0", "end")
+    text_area.insert("end", "Modelo reiniciado.\n")
 
-    # Mensaje de confirmación
-    print("Pesos y centros reiniciados correctamente.")
+    # Limpiar consola de simulación
+    textSimulacion.delete("1.0", "end")
+    textSimulacion.insert("end", "Simulación reiniciada.\n")
+
+    # Limpiar gráficas de entrenamiento
+    ax1.clear()
+    ax1.set_title("Distribución de Residuales")
+    ax1.set_xlabel("Error (Real - Predicho)")
+    ax1.set_ylabel("Frecuencia")
+    canvas1.draw()
+
+    ax2.clear()
+    ax2.set_title("Gráfica de Residuales")
+    ax2.set_xlabel("Índice de patrón")
+    ax2.set_ylabel("Error (Real - Predicho)")
+    canvas2.draw()
+
+    ax3.clear()
+    ax3.set_title("Dispersión de Predicciones")
+    ax3.set_xlabel("Salida Deseada (Yd)")
+    ax3.set_ylabel("Salida Obtenida (Yr)")
+    canvas3.draw()
+
+    axRF1.clear()
+    axRF1.set_title("Distribución de Residuales")
+    axRF1.set_xlabel("Error (Real - Predicho)")
+    axRF1.set_ylabel("Frecuencia")
+    canvasRF1.draw()
+
+    axRF2.clear()
+    axRF2.set_title("Gráfica de Residuales")
+    axRF2.set_xlabel("Índice de patrón")
+    axRF2.set_ylabel("Error (Real - Predicho)")
+    canvasRF2.draw()
+
+    axRF3.clear()
+    axRF3.set_title("Dispersión de Predicciones")
+    axRF3.set_xlabel("Salida Deseada (Yd)")
+    axRF3.set_ylabel("Salida Obtenida (Yr)")
+    canvasRF3.draw()
+
+    # Limpiar gráficas de simulación
+    axS1.clear()
+    axS1.set_title("Distribución de Residuales (Simulación)")
+    axS1.set_xlabel("Error (Yd - Yr)")
+    axS1.set_ylabel("Frecuencia")
+    canvasS1.draw()
+
+    axS2.clear()
+    axS2.set_title("Residuales por Patrón (Simulación)")
+    axS2.set_xlabel("Índice de patrón")
+    axS2.set_ylabel("Error (Yd - Yr)")
+    canvasS2.draw()
+
+    axS3.clear()
+    axS3.set_title("Dispersión Yd vs Yr (Simulación)")
+    axS3.set_xlabel("Salida Deseada (Yd)")
+    axS3.set_ylabel("Salida Obtenida (Yr)")
+    canvasS3.draw()
+
+    lblError.config(text=(
+        f"EG Entrenamiento: \n"
+        f"EG Prueba: "
+    ), foreground="blue")
+
+    lblMAE.config(text=(
+        f"MAE Entrenamiento:  \n"
+        f"MAE Prueba: "
+    ), foreground="darkgreen")
+
+    lblRMSE.config(text=(
+        f"RMSE Entrenamiento: \n"
+        f"RMSE Prueba: "
+    ), foreground="purple")    
+
+    lblErrorRF.config(text=(
+        f"EG Entrenamiento: \n"
+        f"EG Prueba: "
+    ), foreground="blue")
+
+    lblMAERF.config(text=(
+        f"MAE Entrenamiento:  \n"
+        f"MAE Prueba: "
+    ), foreground="darkgreen")
+
+    lblRMSERF.config(text=(
+        f"RMSE Entrenamiento: \n"
+        f"RMSE Prueba: "
+    ), foreground="purple")    
+
+    dividir_dataset(inputs, outputs)
+
+    print("Modelo y gráficas reiniciados correctamente.")
+
 
 def graficar_errores(EG, inpError):
     ax2.clear()
@@ -415,6 +577,33 @@ def graficar_dispersion(Y_real, Y_pred):
     ax3.plot([Y_real.min(), Y_real.max()], [Y_real.min(), Y_real.max()], color="red", linestyle="--")
     canvas3.draw()
 
+def graficar_hist_residuales_RF(Y_real, Y_pred):
+    residuales = Y_real - Y_pred
+    axRF1.clear()
+    axRF1.set_title("Distribución de Residuales")
+    axRF1.set_xlabel("Error (Real - Predicho)")
+    axRF1.set_ylabel("Frecuencia")
+    axRF1.hist(residuales, bins=20, color="skyblue", edgecolor="black", alpha=0.7)
+    canvasRF1.draw()
+
+def graficar_residuales_RF(Y_real, Y_pred):
+    residuales = Y_real - Y_pred
+    axRF2.clear()
+    axRF2.set_title("Gráfica de Residuales")
+    axRF2.set_xlabel("Índice de patrón")
+    axRF2.set_ylabel("Error (Real - Predicho)")
+    axRF2.scatter(range(len(residuales)), residuales, color="blue", alpha=0.6)
+    axRF2.axhline(y=0, color="red", linestyle="--")
+    canvasRF2.draw()
+
+def graficar_dispersion_RF(Y_real, Y_pred):
+    axRF3.clear()
+    axRF3.set_title("Dispersión de Predicciones")
+    axRF3.set_xlabel("Salida Deseada (Yd)")
+    axRF3.set_ylabel("Salida Obtenida (Yr)")
+    axRF3.scatter(Y_real, Y_pred, color="green", alpha=0.6)
+    axRF3.plot([Y_real.min(), Y_real.max()], [Y_real.min(), Y_real.max()], color="red", linestyle="--")
+    canvasRF3.draw()
 
 
 def dividir_dataset(X, Y):
@@ -432,11 +621,13 @@ def dividir_dataset(X, Y):
     print(f"   - Prueba: {len(X_test)} patrones")    
 
 def crear_ventana():
-    global inpTasaDeAprendizaje, inpIteraciones, inpMaxError
-    global line, ax1, ax2, ax3, text_area, tablaDataset
-    global lblEntradas, lblSalidas, lblPatrones, lblError, lblMAE, lblRMSE, lblErrorSim, lblMaeSim, lblRmseSim
-    global inpSimulacion, textSimulacion,inpError, seleccion, text_entrenamiento
-    global canvas1, canvas2, canvas3
+    global ax1, ax2, ax3, canvas1, canvas2, canvas3, text_area, tablaDataset, text_entrenamiento
+    global axRF1, axRF2, axRF3, canvasRF1, canvasRF2, canvasRF3, text_entrenamiento_RF
+    global lblEntradas, lblSalidas, lblPatrones
+    global lblError, lblMAE, lblRMSE
+    global lblErrorSim, lblMaeSim, lblRmseSim
+    global lblErrorRF, lblMAERF, lblRMSERF
+    global inpSimulacion, textSimulacion, seleccion_modelo, seleccion
     global axS1, axS2, axS3, canvasS1, canvasS2, canvasS3
 
     root = tk.Tk()
@@ -511,7 +702,7 @@ def crear_ventana():
     frame_ent_btn = ttk.LabelFrame(frame_entrenamiento, text="Parámetros del entrenamiento")
     frame_ent_btn.grid(column=0, row=0, columnspan=3, padx=10, pady=10, sticky="ew")
 
-    opModelos = ["Regresión Lineal Múltiple"]
+    opModelos = ["Regresión Lineal Múltiple", "Random Forest Regressor"]
     seleccion_modelo = tk.StringVar()
     ttk.Label(frame_ent_btn, text="Modelo:").grid(column=0, row=0, padx=5, pady=5)
     dbModelos = ttk.Combobox(frame_ent_btn, textvariable=seleccion_modelo, values=opModelos, state="readonly")
@@ -521,15 +712,17 @@ def crear_ventana():
     btnReiniciar = ttk.Button(frame_ent_btn, text="Reiniciar Modelo", command=reiniciarModelo)
     btnReiniciar.grid(column=2, row=0, padx=5, pady=5)
 
+    """
     ttk.Label(frame_ent_btn, text="Error Máximo:").grid(column=3, row=0, padx=10, pady=5)
     inpError = ttk.Entry(frame_ent_btn)
     inpError.grid(column=4, row=0, padx=10, pady=5)
+    """
 
     btnEntrenar = ttk.Button(frame_ent_btn, text="Entrenar", command=entrenar)
     btnEntrenar.grid(column=5, row=0, padx=5, pady=5)
 
-    # ---------------------- MÉTRICAS ----------------------
-    frame_met = ttk.LabelFrame(frame_entrenamiento, text="Métricas de Entrenamiento")
+    # ---------------------- MÉTRICAS DE REGRESION LINEAL MÚLTIPLE----------------------
+    frame_met = ttk.LabelFrame(frame_entrenamiento, text="Métricas de Entrenamiento Regresión Lineal")
     frame_met.grid(column=0, row=1, padx=10, pady=10, sticky="nw")
     frame_entrenamiento.columnconfigure(0, minsize=250)
 
@@ -540,12 +733,33 @@ def crear_ventana():
     lblMAE.grid(column=0, row=1, padx=10, pady=5, sticky="w")
 
     lblRMSE = ttk.Label(frame_met, text="RMSE", foreground="blue")
-    lblRMSE.grid(column=0, row=2, padx=10, pady=5, sticky="w")
+    lblRMSE.grid(column=0, row=2, padx=10, pady=5, sticky="w") 
 
-    # ---------------------- GRÁFICAS ENTRENAMIENTO ----------------------
-    frame_graficas = ttk.LabelFrame(frame_entrenamiento, text="Gráficas de Entrenamiento")
-    frame_graficas.grid(column=1, row=1, padx=10, pady=10, sticky="nsew")
+    #---------------------- MÉTRICAS DE RANDOM FOREST REGRESSOR ----------------------
+    frame_met_rf = ttk.LabelFrame(frame_entrenamiento, text="Métricas de Random Forest Regressor")
+    frame_met_rf.grid(column=0, row=1, padx=10, pady=200, sticky="nw")
 
+    lblErrorRF = ttk.Label(frame_met_rf, text="Error", foreground="blue")
+    lblErrorRF.grid(column=0, row=0, padx=10, pady=5, sticky="w")
+
+    lblMAERF = ttk.Label(frame_met_rf, text="MAE", foreground="blue")
+    lblMAERF.grid(column=0, row=1, padx=10, pady=5, sticky="w")
+
+    lblRMSERF = ttk.Label(frame_met_rf, text="RMSE", foreground="blue")
+    lblRMSERF.grid(column=0, row=2, padx=10, pady=5, sticky="w")
+
+    # ---------------------- PESTAÑAS DE GRÁFICAS ENTRENAMIENTO----------------------
+
+    notebook_graficas = ttk.Notebook(frame_entrenamiento)
+    notebook_graficas.grid(column=1, row=1, padx=10, pady=10, sticky="nsew")   
+
+    frame_regresion = ttk.Frame(notebook_graficas)
+    frame_random = ttk.Frame(notebook_graficas)
+
+    notebook_graficas.add(frame_regresion, text="Regresión Lineal Múltiple")
+    notebook_graficas.add(frame_random, text="Random Forest Regressor")
+
+    # ---------------------- GRÁFICAS ENTRENAMIENTO REGRESION LINEAL----------------------
     fig1, ax1 = plt.subplots(figsize=(5, 4))
     fig2, ax2 = plt.subplots(figsize=(5, 4))
     fig3, ax3 = plt.subplots(figsize=(5, 4))
@@ -567,34 +781,72 @@ def crear_ventana():
     ax3.set_ylabel("Salida Obtenida (Yr)")
     fig3.tight_layout()
 
-    canvas1 = FigureCanvasTkAgg(fig1, master=frame_graficas)
-    canvas2 = FigureCanvasTkAgg(fig2, master=frame_graficas)
-    canvas3 = FigureCanvasTkAgg(fig3, master=frame_graficas)
+    canvas1 = FigureCanvasTkAgg(fig1, master=frame_regresion)
+    canvas2 = FigureCanvasTkAgg(fig2, master=frame_regresion)
+    canvas3 = FigureCanvasTkAgg(fig3, master=frame_regresion)
 
     canvas1.get_tk_widget().grid(row=0, column=0, padx=10, pady=10)
     canvas2.get_tk_widget().grid(row=0, column=1, padx=10, pady=10)
     canvas3.get_tk_widget().grid(row=1, column=0, padx=10, pady=10)
 
-    #------------------------ CONSOLA --------------------------
-    text_entrenamiento = tk.Text(frame_graficas, wrap="word", width=60)
+    text_entrenamiento = tk.Text(frame_regresion, wrap="word", width=60)
     text_entrenamiento.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")    
+
+    # ---------------------- GRÁFICAS ENTRENAMIENTO RANDOM FOREST----------------------
+    figRF1, axRF1 = plt.subplots(figsize=(5, 4))
+    figRF2, axRF2 = plt.subplots(figsize=(5, 4))
+    figRF3, axRF3 = plt.subplots(figsize=(5, 4))
+
+    axRF1.set_title("Distribución de Residuales")
+    axRF1.set_xlabel("Error (Real - Predicho)")
+    axRF1.set_ylabel("Frecuencia")
+
+    # Inicializar gráfica de residuales vacía
+    axRF2.set_title("Gráfica de Residuales - Esperando datos")
+    axRF2.set_xlabel("Índice de patrón")
+    axRF2.set_ylabel("Error (Real - Predicho)")
+    axRF2.text(0.5, 0.5, "Ejecuta el entrenamiento\npara ver los residuales",
+            ha='center', va='center', transform=axRF2.transAxes, fontsize=12)
+    figRF2.tight_layout()
+
+    axRF3.set_title("Dispersión de Predicciones (Entrenamiento)")
+    axRF3.set_xlabel("Salida Deseada (Yd)")
+    axRF3.set_ylabel("Salida Obtenida (Yr)")
+    figRF3.tight_layout()
+
+    canvasRF1 = FigureCanvasTkAgg(figRF1, master=frame_random)
+    canvasRF2 = FigureCanvasTkAgg(figRF2, master=frame_random)
+    canvasRF3 = FigureCanvasTkAgg(figRF3, master=frame_random)
+
+    canvasRF1.get_tk_widget().grid(row=0, column=0, padx=10, pady=10)
+    canvasRF2.get_tk_widget().grid(row=0, column=1, padx=10, pady=10)
+    canvasRF3.get_tk_widget().grid(row=1, column=0, padx=10, pady=10)
+
+    #------------------------ CONSOLA --------------------------
+    text_entrenamiento_RF = tk.Text(frame_random, wrap="word", width=60)
+    text_entrenamiento_RF.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")    
 
     # ---------------------- SIMULACIÓN ----------------------
     frame_sim_input = ttk.LabelFrame(frame_simulacion, text="Entrada del Patrón")
     frame_sim_input.grid(column=0, row=0, padx=10, pady=10, sticky="ew", columnspan=2)
 
-    ttk.Label(frame_sim_input, text="Entradas (separadas por coma):").grid(column=0, row=0, padx=10, pady=10)
+    ttk.Label(frame_sim_input, text="Modelo:").grid(column=0, row=0, padx=5, pady=5)
+    dbModelos = ttk.Combobox(frame_sim_input, textvariable=seleccion_modelo, values=opModelos, state="readonly")
+    dbModelos.grid(column=1, row=0, padx=5, pady=5)
+    dbModelos.current(0)
+
+    ttk.Label(frame_sim_input, text="Entradas (separadas por coma):").grid(column=2, row=0, padx=10, pady=10)
     inpSimulacion = ttk.Entry(frame_sim_input, width=50)
-    inpSimulacion.grid(column=1, row=0, padx=5, pady=5)
+    inpSimulacion.grid(column=3, row=0, padx=5, pady=5)
 
     btnSimular = ttk.Button(frame_sim_input, text="Simular", command=simular)
-    btnSimular.grid(column=2, row=0, padx=5, pady=5)
+    btnSimular.grid(column=4, row=0, padx=5, pady=5)
 
     btnSimularPrueba = ttk.Button(frame_sim_input, text="Simular Conjunto de Prueba", command=simular_prueba)
-    btnSimularPrueba.grid(column=3, row=0, padx=5, pady=5)
+    btnSimularPrueba.grid(column=5, row=0, padx=5, pady=5)
 
     btnCargarWU = ttk.Button(frame_sim_input, text="Cargar Modelo", command=cargarModelo)
-    btnCargarWU.grid(column=4, row=0, padx=5, pady=5)
+    btnCargarWU.grid(column=6, row=0, padx=5, pady=5)
 
     # ---------------------- MÉTRICAS SIMULACIÓN ----------------------
     frame_met_sim = ttk.LabelFrame(frame_simulacion, text="Métricas de Simulación")
