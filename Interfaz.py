@@ -1,7 +1,5 @@
-from sklearn.linear_model import LinearRegression
-from tkinter import Canvas, ttk
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from tkinter import ttk
+import randomForest as rf
 import joblib
 import regresionLineal as rl
 import tkinter as tk
@@ -201,6 +199,7 @@ def almacenarModelo(modelo, carpeta_destino="Modelos"):
     joblib.dump(modelo, ruta_archivo)
 
     text_entrenamiento.insert("end", f"Modelo guardado en: {ruta_archivo}\n")
+    text_entrenamiento_RF.insert("end", f"Modelo guardado en: {ruta_archivo}\n")
 
 def entrenar():
     global Y_test, Yr_test, Y_train, Yr_train, modelo_rl, modelo_rf
@@ -213,24 +212,14 @@ def entrenar():
         try:
             text_entrenamiento.insert("end", "Entrenando Regresión Lineal Múltiple...\n")
 
-            # Entrenar modelo directamente
-            modelo_rl = LinearRegression()
-            modelo_rl.fit(X_train, Y_train)
+            modelo_rl = rl.entrenamiento_regresion_lineal(X_train, Y_train)            
 
-            # Predicciones
-            Yr_train = modelo_rl.predict(X_train)
-            Yr_test = modelo_rl.predict(X_test)
-
-            # Métricas
-            EG_train = r2_score(Y_train, Yr_train)
-            EG_test = r2_score(Y_test, Yr_test)
-
-            MAE_train = mean_absolute_error(Y_train, Yr_train)
-            MAE_test = mean_absolute_error(Y_test, Yr_test)
-
-            RMSE_train = np.sqrt(mean_squared_error(Y_train, Yr_train))
-            RMSE_test = np.sqrt(mean_squared_error(Y_test, Yr_test))
-
+            #Predicciones
+            Yr_train, Yr_test = rl.predict(modelo_rl, X_train, X_test)
+            
+            EG_train, MAE_train, RMSE_train = rl.metricas(Y_train, Yr_train)
+            EG_test, MAE_test, RMSE_test = rl.metricas(Y_test, Yr_test)
+        
             # Mostrar resultados
             lblError.config(text=f"EG Entrenamiento: {EG_train:.4f} \nEG Prueba: {EG_test:.4f}", foreground="blue")
             lblMAE.config(text=f"MAE Entrenamiento: {MAE_train:.4f} \nMAE Prueba: {MAE_test:.4f}", foreground="darkgreen")
@@ -254,23 +243,13 @@ def entrenar():
         try:
             text_entrenamiento_RF.insert("end", "Entrenando Random Forest Regressor...\n")
 
-            modelo_rf = RandomForestRegressor(
-                n_estimators=200,
-                max_depth=12,
-                random_state=42,
-                n_jobs=-1
-            )
-            modelo_rf.fit(X_train, Y_train)
+            modelo_rf = rf.entrenar(X_train, Y_train)            
 
-            Yr_train_RF = modelo_rf.predict(X_train)
-            Yr_test_RF = modelo_rf.predict(X_test)
+            #Predicciones
+            Yr_train_RF, Yr_test_RF= rf.predicciones(modelo_rf, X_train, X_test)
 
-            EG_train = r2_score(Y_train, Yr_train_RF)
-            EG_test = r2_score(Y_test, Yr_test_RF)
-            MAE_train = mean_absolute_error(Y_train, Yr_train_RF)
-            MAE_test = mean_absolute_error(Y_test, Yr_test_RF)
-            RMSE_train = np.sqrt(mean_squared_error(Y_train, Yr_train_RF))
-            RMSE_test = np.sqrt(mean_squared_error(Y_test, Yr_test_RF))
+            EG_train, MAE_train, RMSE_train = rf.metricas(Y_train, Yr_train_RF)
+            EG_test, MAE_test, RMSE_test = rf.metricas(Y_test, Yr_test_RF)
 
             lblErrorRF.config(text=f"EG Entrenamiento: {EG_train:.4f} \nEG Prueba: {EG_test:.4f}", foreground="blue")
             lblMAERF.config(text=f"MAE Entrenamiento: {MAE_train:.4f} \nMAE Prueba: {MAE_test:.4f}", foreground="darkgreen")
@@ -286,13 +265,6 @@ def entrenar():
 
         except Exception as e:
             text_entrenamiento_RF.insert("end", f"Error durante el entrenamiento RF: {e}\n")
-
-def calcular_metricas(Yd, Yr):
-    errores = [abs(y1 - y2) for y1, y2 in zip(Yd, Yr)]
-    EG = sum(errores) / len(errores)
-    MAE = sum(abs(y1 - y2) for y1, y2 in zip(Yd, Yr)) / len(Yd)
-    RMSE = (sum((y1 - y2)**2 for y1, y2 in zip(Yd, Yr)) / len(Yd))**0.5
-    return EG, MAE, RMSE
 
 def procesar_entrada(texto):
     codigos_barrios = {
@@ -395,10 +367,10 @@ def simular_prueba():
             textSimulacionRF.insert("end", f"Patrón {i+1} | Yd: {Y_test[i]:.2f} | Yr: {Yr_test_RF[i]:.2f}\n")
 
     if modelo_seleccionado == "Regresión Lineal Múltiple":    
+        
         # Calcular métricas globales
-        mae = mean_absolute_error(Y_test, Yr_test)
-        rmse = np.sqrt(mean_squared_error(Y_test, Yr_test))
-        r2 = r2_score(Y_test, Yr_test)
+
+        r2, mae, rmse = rl.metricas(Y_test, Yr_test)
 
         # Mostrar error de simulación
         lblErrorSim.config(text=(
@@ -418,9 +390,7 @@ def simular_prueba():
 
     elif modelo_seleccionado == "Random Forest Regressor":           
         # Calcular métricas globales
-        maeRF = mean_absolute_error(Y_test, Yr_test_RF)
-        rmseRF = np.sqrt(mean_squared_error(Y_test, Yr_test_RF))
-        r2RF = r2_score(Y_test, Yr_test_RF)
+        r2RF, maeRF, rmseRF = rf.metricas(Y_test, Yr_test_RF)
 
         # Mostrar error de simulación
         lblErrorSimRF.config(text=(
@@ -719,7 +689,7 @@ def crear_ventana():
 
     root = tk.Tk()
     root.title("Regresión Lineal Múltiple")
-    root.geometry("1323x1004")
+    root.geometry("1393x1034")
 
     # Crear notebook (pestañas)
     notebook = ttk.Notebook(root)
@@ -798,12 +768,6 @@ def crear_ventana():
 
     btnReiniciar = ttk.Button(frame_ent_btn, text="Reiniciar Modelo", command=reiniciarModelo)
     btnReiniciar.grid(column=2, row=0, padx=5, pady=5)
-
-    """
-    ttk.Label(frame_ent_btn, text="Error Máximo:").grid(column=3, row=0, padx=10, pady=5)
-    inpError = ttk.Entry(frame_ent_btn)
-    inpError.grid(column=4, row=0, padx=10, pady=5)
-    """
 
     btnEntrenar = ttk.Button(frame_ent_btn, text="Entrenar", command=entrenar)
     btnEntrenar.grid(column=5, row=0, padx=5, pady=5)
