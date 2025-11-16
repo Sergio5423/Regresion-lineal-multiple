@@ -35,6 +35,8 @@ outputs = None
 w = None
 X_train, X_test, Y_train, Y_test = None, None, None, None
 Yr_train, Yr_test = None, None
+modelo_rl = None
+modelo_rf = None
 
 def abrirArchivo():
     global inputs, outputs, dataset_filename
@@ -117,7 +119,12 @@ def abrirArchivo():
         print(f"Error al leer el archivo: {e}")
 
 def cargarModelo():
-    global Y_test, Yr_test, Y_train, Yr_train, modelo, X_train, X_test
+    global Y_test, Yr_test, Y_train, Yr_train, modelo_rl, modelo_rf
+    global Yr_train_RF, Yr_test_RF
+    global X_train, X_test
+
+    modelo_seleccionado = seleccion_modelo.get()
+
     try:
         filepath = filedialog.askopenfilename(
             title="Seleccionar modelo entrenado",
@@ -128,32 +135,46 @@ def cargarModelo():
         if not filepath:
             textSimulacion.insert("end", "No se seleccionó ningún archivo.\n")
             return
+        
+        if modelo_seleccionado == "Regresión Lineal Múltiple":
+            
+            # Cargar el modelo entrenado
+            modelo_rl = joblib.load(filepath)
+            textSimulacion.insert("end", f"Modelo cargado desde: {filepath}\n")
 
-        # Cargar el modelo entrenado
-        modelo = joblib.load(filepath)
-        textSimulacion.insert("end", f"Modelo cargado desde: {filepath}\n")
+            # Mostrar coeficientes e intercepto
+            if hasattr(modelo_rl, "coef_") and hasattr(modelo_rl, "intercept_"):
+                textSimulacion.insert("end", f"Coeficientes: {modelo_rl.coef_}\n")
+                textSimulacion.insert("end", f"Intercepto: {modelo_rl.intercept_}\n")
 
-        # Mostrar coeficientes e intercepto
-        if hasattr(modelo, "coef_") and hasattr(modelo, "intercept_"):
-            textSimulacion.insert("end", f"Coeficientes: {modelo.coef_}\n")
-            textSimulacion.insert("end", f"Intercepto: {modelo.intercept_}\n")
+            # Generar predicciones si ya existen conjuntos train/test
+            if X_train is not None and Y_train is not None:
+                Yr_train = modelo_rl.predict(X_train)
+                textSimulacion.insert("end", f"Predicciones de entrenamiento generadas ({len(Yr_train)} patrones).\n")
 
-        # Generar predicciones si ya existen conjuntos train/test
-        if X_train is not None and Y_train is not None:
-            Yr_train = modelo.predict(X_train)
-            textSimulacion.insert("end", f"Predicciones de entrenamiento generadas ({len(Yr_train)} patrones).\n")
+            if X_test is not None and Y_test is not None:
+                Yr_test = modelo_rl.predict(X_test)
+                textSimulacion.insert("end", f"Predicciones de prueba generadas ({len(Yr_test)} patrones).\n")
+        elif modelo_seleccionado == "Random Forest Regressor":
+            
+            # Cargar el modelo entrenado
+            modelo_rf = joblib.load(filepath)
+            textSimulacionRF.insert("end", f"Modelo cargado desde: {filepath}\n")
 
-        if X_test is not None and Y_test is not None:
-            Yr_test = modelo.predict(X_test)  # ESTA LÍNEA FALTABA
-            textSimulacion.insert("end", f"Predicciones de prueba generadas ({len(Yr_test)} patrones).\n")
+            # Generar predicciones si ya existen conjuntos train/test
+            if X_train is not None and Y_train is not None:
+                Yr_train_RF = modelo_rf.predict(X_train)
+                textSimulacionRF.insert("end", f"Predicciones de entrenamiento generadas ({len(Yr_train_RF)} patrones).\n")
+
+            if X_test is not None and Y_test is not None:
+                Yr_test_RF = modelo_rf.predict(X_test)  
+                textSimulacionRF.insert("end", f"Predicciones de prueba generadas ({len(Yr_test_RF)} patrones).\n")
 
     except Exception as e:
         textSimulacion.insert("end", f"Error al cargar el modelo: {e}\n")
 
     except Exception as e:
         textSimulacion.insert("end", f"Error al cargar el modelo: {e}\n")
-
-
 
     except Exception as e:
         textSimulacion.insert("end", f"Error al cargar el modelo: {e}\n")
@@ -161,6 +182,8 @@ def cargarModelo():
 
 def almacenarModelo(modelo, carpeta_destino="Modelos"):
     global dataset_filename
+
+    modelo_seleccionado = seleccion_modelo.get()
 
     if not messagebox.askyesno("Guardar Modelo", "¿Desea guardar el modelo entrenado?"):
         text_entrenamiento.insert("end", f"Guardado cancelado.\n")
@@ -170,7 +193,8 @@ def almacenarModelo(modelo, carpeta_destino="Modelos"):
 
     base_name = dataset_filename if dataset_filename else "sin_nombre"
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nombre_archivo = f"{base_name}_{timestamp}.pkl"   # extensión correcta
+    model = modelo_seleccionado.replace(" ", "_")
+    nombre_archivo = f"{base_name}_{timestamp}_{model}.pkl"   # extensión correcta
     ruta_archivo = os.path.join(carpeta_destino, nombre_archivo)
 
     # Guardar el modelo entrenado con joblib
@@ -180,6 +204,7 @@ def almacenarModelo(modelo, carpeta_destino="Modelos"):
 
 def entrenar():
     global Y_test, Yr_test, Y_train, Yr_train, modelo_rl, modelo_rf
+    global Yr_train_RF, Yr_test_RF
 
     modelo_seleccionado = seleccion_modelo.get()
 
@@ -237,25 +262,25 @@ def entrenar():
             )
             modelo_rf.fit(X_train, Y_train)
 
-            Yr_train = modelo_rf.predict(X_train)
-            Yr_test = modelo_rf.predict(X_test)
+            Yr_train_RF = modelo_rf.predict(X_train)
+            Yr_test_RF = modelo_rf.predict(X_test)
 
-            EG_train = r2_score(Y_train, Yr_train)
-            EG_test = r2_score(Y_test, Yr_test)
-            MAE_train = mean_absolute_error(Y_train, Yr_train)
-            MAE_test = mean_absolute_error(Y_test, Yr_test)
-            RMSE_train = np.sqrt(mean_squared_error(Y_train, Yr_train))
-            RMSE_test = np.sqrt(mean_squared_error(Y_test, Yr_test))
+            EG_train = r2_score(Y_train, Yr_train_RF)
+            EG_test = r2_score(Y_test, Yr_test_RF)
+            MAE_train = mean_absolute_error(Y_train, Yr_train_RF)
+            MAE_test = mean_absolute_error(Y_test, Yr_test_RF)
+            RMSE_train = np.sqrt(mean_squared_error(Y_train, Yr_train_RF))
+            RMSE_test = np.sqrt(mean_squared_error(Y_test, Yr_test_RF))
 
             lblErrorRF.config(text=f"EG Entrenamiento: {EG_train:.4f} \nEG Prueba: {EG_test:.4f}", foreground="blue")
             lblMAERF.config(text=f"MAE Entrenamiento: {MAE_train:.4f} \nMAE Prueba: {MAE_test:.4f}", foreground="darkgreen")
             lblRMSERF.config(text=f"RMSE Entrenamiento: {RMSE_train:.4f} \nRMSE Prueba: {RMSE_test:.4f}", foreground="purple")
 
-            text_entrenamiento_RF.insert("end", "Entrenamiento completado.\n")
+            text_entrenamiento_RF.insert("end", "Entrenamiento completado.\n")            
 
-            graficar_hist_residuales_RF(Y_train, Yr_train)
-            graficar_residuales_RF(Y_train, Yr_train)
-            graficar_dispersion_RF(Y_train, Yr_train)
+            graficar_hist_residuales_RF(Y_train, Yr_train_RF)
+            graficar_residuales_RF(Y_train, Yr_train_RF)
+            graficar_dispersion_RF(Y_train, Yr_train_RF)
 
             almacenarModelo(modelo_rf)
 
@@ -270,7 +295,6 @@ def calcular_metricas(Yd, Yr):
     return EG, MAE, RMSE
 
 def procesar_entrada(texto):
-    # Diccionario de barrios
     codigos_barrios = {
         "La Nevada": 0,
         "Los Cortijos": 1,
@@ -299,7 +323,6 @@ def procesar_entrada(texto):
                parqueadero, ascensor, barrio, cercania, tasa_desempleo]
 
     return entrada, valores[7]  # devuelve también el nombre del barrio
-
 
 def simular():
     global modelo_rl, modelo_rf
@@ -334,82 +357,144 @@ def simular():
     except Exception as e:
         textSimulacion.insert("end", f"Error durante la simulación: {e}\n\n")
 
-
-
-
 def simular_prueba():
-    global Yr_test, Y_test, modelo, X_test
+    global Yr_test, Y_test, X_test
+    global modelo_rf, modelo_rl
     global axS1, axS2, axS3, canvasS1, canvasS2, canvasS3
+
+    modelo_seleccionado = seleccion_modelo.get()
 
     # Verificar si tenemos datos de prueba
     if X_test is None or Y_test is None:
         textSimulacion.insert("end", "No hay conjunto de prueba disponible. Primero divida el dataset.\n")
+        textSimulacionRF.insert("end", "No hay conjunto de prueba disponible. Primero divida el dataset.\n")
         return
 
     # Si no tenemos Yr_test pero tenemos modelo y X_test, calcularlo
-    if Yr_test is None and modelo is not None and X_test is not None:
-        Yr_test = modelo.predict(X_test)
-        textSimulacion.insert("end", "Predicciones de prueba calculadas a partir del modelo cargado.\n")
+    if Yr_test is None and modelo_rl is not None and X_test is not None:
+        Yr_test = modelo_rl.predict(X_test)
+        textSimulacion.insert("end", "Predicciones de prueba REGRSION LINEAL MÚLTIPLE calculadas a partir del modelo cargado.\n")
+    elif Yr_test is None and modelo_rf is not None and X_test is not None:
+        Yr_test = modelo_rf.predict(X_test)
+        textSimulacionRF.insert("end", "Predicciones de prueba RANDOM FOREST REGRESSOR calculadas a partir del modelo cargado.\n")
     
     # Si aún no tenemos Yr_test, mostrar error
     if Yr_test is None:
         textSimulacion.insert("end", "No hay resultados de prueba disponibles. Entrene un modelo o cargue uno con predicciones.\n")
+        textSimulacionRF.insert("end", "No hay resultados de prueba disponibles. Entrene un modelo o cargue uno con predicciones.\n")
         return
 
     # Mostrar resultados en consola
-    textSimulacion.delete("1.0", "end")  # limpiar consola
-    for i in range(len(Y_test)):
-        textSimulacion.insert("end", f"Patrón {i+1} | Yd: {Y_test[i]:.2f} | Yr: {Yr_test[i]:.2f}\n")
+    if modelo_seleccionado == "Regresión Lineal Múltiple":
+        textSimulacion.delete("1.0", "end")  # limpiar consola
+        for i in range(len(Y_test)):
+            textSimulacion.insert("end", f"Patrón {i+1} | Yd: {Y_test[i]:.2f} | Yr: {Yr_test[i]:.2f}\n")
+    elif modelo_seleccionado == "Random Forest Regressor":
+        textSimulacionRF.delete("1.0", "end")  # limpiar consola
+        for i in range(len(Y_test)):
+            textSimulacionRF.insert("end", f"Patrón {i+1} | Yd: {Y_test[i]:.2f} | Yr: {Yr_test_RF[i]:.2f}\n")
 
-    # Calcular métricas globales
-    mae = mean_absolute_error(Y_test, Yr_test)
-    rmse = np.sqrt(mean_squared_error(Y_test, Yr_test))
-    r2 = r2_score(Y_test, Yr_test)
+    if modelo_seleccionado == "Regresión Lineal Múltiple":    
+        # Calcular métricas globales
+        mae = mean_absolute_error(Y_test, Yr_test)
+        rmse = np.sqrt(mean_squared_error(Y_test, Yr_test))
+        r2 = r2_score(Y_test, Yr_test)
 
-    # Mostrar error de entrenamiento
-    lblErrorSim.config(text=(
-        f"EG Simulación: {r2:.4f}\n"        
-    ), foreground="blue")
+        # Mostrar error de simulación
+        lblErrorSim.config(text=(
+            f"EG Simulación: {r2:.4f}\n"        
+        ), foreground="blue")
 
-    lblMaeSim.config(text=(
-        f"MAE Simulación: {mae:.4f}\n"        
-    ), foreground="darkgreen")
+        lblMaeSim.config(text=(
+            f"MAE Simulación: {mae:.4f}\n"        
+        ), foreground="darkgreen")
 
-    lblRmseSim.config(text=(
-        f"RMSE Simulación: {rmse:.4f} \n"        
-    ), foreground="purple")
+        lblRmseSim.config(text=(
+            f"RMSE Simulación: {rmse:.4f} \n"        
+        ), foreground="purple")
 
-    # Graficar resultados
-    actualizar_graficas_simulacion(np.array(Y_test), np.array(Yr_test))
+        # Graficar resultados
+        actualizar_graficas_simulacion(modelo_seleccionado, np.array(Y_test), np.array(Yr_test))
 
-def actualizar_graficas_simulacion(Yd, Yr):
+    elif modelo_seleccionado == "Random Forest Regressor":           
+        # Calcular métricas globales
+        maeRF = mean_absolute_error(Y_test, Yr_test_RF)
+        rmseRF = np.sqrt(mean_squared_error(Y_test, Yr_test_RF))
+        r2RF = r2_score(Y_test, Yr_test_RF)
+
+        # Mostrar error de simulación
+        lblErrorSimRF.config(text=(
+            f"EG Simulación: {r2RF:.4f}\n"        
+        ), foreground="blue")
+
+        lblMaeSimRF.config(text=(
+            f"MAE Simulación: {maeRF:.4f}\n"        
+        ), foreground="darkgreen")
+
+        lblRmseSimRF.config(text=(
+            f"RMSE Simulación: {rmseRF:.4f} \n"        
+        ), foreground="purple")
+
+        # Graficar resultados
+        actualizar_graficas_simulacion(modelo_seleccionado, np.array(Y_test), np.array(Yr_test_RF))        
+
+def actualizar_graficas_simulacion(modelo_seleccionado, Yd, Yr):
     residuales = Yd - Yr
 
-    # Histograma
-    axS1.clear()
-    axS1.set_title("Distribución de Residuales (Simulación)")
-    axS1.set_xlabel("Error (Yd - Yr)")
-    axS1.set_ylabel("Frecuencia")
-    axS1.hist(residuales, bins=20, color="skyblue", edgecolor="black")
-    canvasS1.draw()
+    if modelo_seleccionado == "Regresión Lineal Múltiple":
+        
+        # Histograma
+        axS1.clear()
+        axS1.set_title("Distribución de Residuales (Simulación)")
+        axS1.set_xlabel("Error (Yd - Yr)")
+        axS1.set_ylabel("Frecuencia")
+        axS1.hist(residuales, bins=20, color="skyblue", edgecolor="black")
+        canvasS1.draw()
 
-    # Residuales por patrón
-    axS2.clear()
-    axS2.set_title("Residuales por Patrón (Simulación)")
-    axS2.set_xlabel("Índice de patrón")
-    axS2.set_ylabel("Error (Yd - Yr)")
-    axS2.scatter(range(len(residuales)), residuales, color="purple", alpha=0.6)
-    axS2.axhline(y=0, color="gray", linestyle="--")
-    canvasS2.draw()
+        # Residuales por patrón
+        axS2.clear()
+        axS2.set_title("Residuales por Patrón (Simulación)")
+        axS2.set_xlabel("Índice de patrón")
+        axS2.set_ylabel("Error (Yd - Yr)")
+        axS2.scatter(range(len(residuales)), residuales, color="purple", alpha=0.6)
+        axS2.axhline(y=0, color="gray", linestyle="--")
+        canvasS2.draw()
 
-    # Dispersión Yd vs Yr
-    axS3.clear()
-    axS3.set_title("Dispersión Yd vs Yr (Simulación)")
-    axS3.set_xlabel("Salida Deseada (Yd)")
-    axS3.set_ylabel("Salida Obtenida (Yr)")
-    axS3.scatter(Yd, Yr, color="green", alpha=0.6)
-    axS3.plot([min(Yd), max(Yd)], [min(Yd), max(Yd)], color="red", linestyle="--")
-    canvasS3.draw()
+        # Dispersión Yd vs Yr
+        axS3.clear()
+        axS3.set_title("Dispersión Yd vs Yr (Simulación)")
+        axS3.set_xlabel("Salida Deseada (Yd)")
+        axS3.set_ylabel("Salida Obtenida (Yr)")
+        axS3.scatter(Yd, Yr, color="green", alpha=0.6)
+        axS3.plot([min(Yd), max(Yd)], [min(Yd), max(Yd)], color="red", linestyle="--")
+        canvasS3.draw()
+
+    elif modelo_seleccionado == "Random Forest Regressor":
+        # Histograma
+        axSRF1.clear()
+        axSRF1.set_title("Distribución de Residuales (Simulación)")
+        axSRF1.set_xlabel("Error (Yd - Yr)")
+        axSRF1.set_ylabel("Frecuencia")
+        axSRF1.hist(residuales, bins=20, color="skyblue", edgecolor="black")
+        canvasSRF1.draw()
+
+        # Residuales por patrón
+        axSRF2.clear()
+        axSRF2.set_title("Residuales por Patrón (Simulación)")
+        axSRF2.set_xlabel("Índice de patrón")
+        axSRF2.set_ylabel("Error (Yd - Yr)")
+        axSRF2.scatter(range(len(residuales)), residuales, color="purple", alpha=0.6)
+        axSRF2.axhline(y=0, color="gray", linestyle="--")
+        canvasSRF2.draw()
+
+        # Dispersión Yd vs Yr
+        axSRF3.clear()
+        axSRF3.set_title("Dispersión Yd vs Yr (Simulación)")
+        axSRF3.set_xlabel("Salida Deseada (Yd)")
+        axSRF3.set_ylabel("Salida Obtenida (Yr)")
+        axSRF3.scatter(Yd, Yr, color="green", alpha=0.6)
+        axSRF3.plot([min(Yd), max(Yd)], [min(Yd), max(Yd)], color="red", linestyle="--")
+        canvasSRF3.draw()
 
 def reiniciarModelo():
     global modelo, Y_train, Yr_train, Y_test, Yr_test
@@ -627,8 +712,10 @@ def crear_ventana():
     global lblError, lblMAE, lblRMSE
     global lblErrorSim, lblMaeSim, lblRmseSim
     global lblErrorRF, lblMAERF, lblRMSERF
+    global lblErrorSimRF, lblMaeSimRF, lblRmseSimRF
     global inpSimulacion, textSimulacion, seleccion_modelo, seleccion
     global axS1, axS2, axS3, canvasS1, canvasS2, canvasS3
+    global axSRF1, axSRF2, axSRF3, canvasSRF1, canvasSRF2, canvasSRF3, textSimulacionRF
 
     root = tk.Tk()
     root.title("Regresión Lineal Múltiple")
@@ -722,7 +809,7 @@ def crear_ventana():
     btnEntrenar.grid(column=5, row=0, padx=5, pady=5)
 
     # ---------------------- MÉTRICAS DE REGRESION LINEAL MÚLTIPLE----------------------
-    frame_met = ttk.LabelFrame(frame_entrenamiento, text="Métricas de Entrenamiento Regresión Lineal")
+    frame_met = ttk.LabelFrame(frame_entrenamiento, text="Métricas de Entrenamiento Regresión Lineal Múltiple")
     frame_met.grid(column=0, row=1, padx=10, pady=10, sticky="nw")
     frame_entrenamiento.columnconfigure(0, minsize=250)
 
@@ -848,8 +935,8 @@ def crear_ventana():
     btnCargarWU = ttk.Button(frame_sim_input, text="Cargar Modelo", command=cargarModelo)
     btnCargarWU.grid(column=6, row=0, padx=5, pady=5)
 
-    # ---------------------- MÉTRICAS SIMULACIÓN ----------------------
-    frame_met_sim = ttk.LabelFrame(frame_simulacion, text="Métricas de Simulación")
+    # ---------------------- MÉTRICAS SIMULACIÓN REGRESIÓN LINEAL----------------------
+    frame_met_sim = ttk.LabelFrame(frame_simulacion, text="Métricas de Simulación regresión lineal múltiple")
     frame_met_sim.grid(column=0, row=1, padx=10, pady=10, sticky="nw")
     frame_simulacion.columnconfigure(0, minsize=250)
 
@@ -862,15 +949,34 @@ def crear_ventana():
     lblRmseSim = ttk.Label(frame_met_sim, text="RMSE", foreground="blue")
     lblRmseSim.grid(column=0, row=2, padx=10, pady=5, sticky="w")
 
-    # ---------------------- RESULTADOS SIMULACIÓN ----------------------
+    # ---------------------- MÉTRICAS SIMULACIÓN RANDOM FOREST REGRESSOR----------------------
+    frame_met_sim_rf = ttk.LabelFrame(frame_simulacion, text="Métricas de Simulación random forest regressor")
+    frame_met_sim_rf.grid(column=0, row=1, padx=10, pady=200, sticky="nw")
 
-    frame_sim_output = ttk.LabelFrame(frame_simulacion, text="Resultado de la Simulación")
-    frame_sim_output.grid(column=1, row=1, padx=10, pady=10, sticky="nsew")
+    lblErrorSimRF = ttk.Label(frame_met_sim_rf, text="Error", foreground="blue")
+    lblErrorSimRF.grid(column=0, row=0, padx=10, pady=5, sticky="w")
 
-    textSimulacion = tk.Text(frame_sim_output, wrap="word", width=60)
-    textSimulacion.grid(column=1, row=1, padx=5, pady=5)
+    lblMaeSimRF = ttk.Label(frame_met_sim_rf, text="MAE", foreground="blue")
+    lblMaeSimRF.grid(column=0, row=1, padx=10, pady=5, sticky="w")
+
+    lblRmseSimRF = ttk.Label(frame_met_sim_rf, text="RMSE", foreground="blue")
+    lblRmseSimRF.grid(column=0, row=2, padx=10, pady=5, sticky="w")
+
+    # ---------------------- PESTAÑAS DE GRÁFICAS SIMULACIÓN ----------------------
+
+    notebook_graficas_sim = ttk.Notebook(frame_simulacion)
+    notebook_graficas_sim.grid(column=1, row=1, padx=10, pady=10, sticky="nsew")
+    
+    frame_regresion_sim = ttk.Frame(notebook_graficas_sim)
+    frame_random_sim = ttk.Frame(notebook_graficas_sim)
+
+    notebook_graficas_sim.add(frame_regresion_sim, text="Regresión Lineal Múltiple")
+    notebook_graficas_sim.add(frame_random_sim, text="Random Forest Regressor")
+
+    """frame_sim_output = ttk.LabelFrame(frame_simulacion, text="Resultado de la Simulación")
+    frame_sim_output.grid(column=1, row=1, padx=10, pady=10, sticky="nsew")"""
         
-    # ---------------------- GRÁFICAS SIMULACIÓN ----------------------
+    # ---------------------- GRÁFICAS SIMULACIÓN REGRESIÓN LINEAL ----------------------
     figS1, axS1 = plt.subplots(figsize=(5, 4))  # Histograma de residuales
     figS2, axS2 = plt.subplots(figsize=(5, 4))  # Residuales por patrón
     figS3, axS3 = plt.subplots(figsize=(5, 4))  # Dispersión Yd vs Yr
@@ -899,13 +1005,56 @@ def crear_ventana():
             ha='center', va='center', transform=axS3.transAxes, fontsize=11)
     figS3.tight_layout()
 
-    canvasS1 = FigureCanvasTkAgg(figS1, master=frame_sim_output)
-    canvasS2 = FigureCanvasTkAgg(figS2, master=frame_sim_output)
-    canvasS3 = FigureCanvasTkAgg(figS3, master=frame_sim_output)
+    canvasS1 = FigureCanvasTkAgg(figS1, master=frame_regresion_sim)
+    canvasS2 = FigureCanvasTkAgg(figS2, master=frame_regresion_sim)
+    canvasS3 = FigureCanvasTkAgg(figS3, master=frame_regresion_sim)
 
     canvasS1.get_tk_widget().grid(row=0, column=0, padx=5, pady=5)
     canvasS2.get_tk_widget().grid(row=0, column=1, padx=5, pady=5)
     canvasS3.get_tk_widget().grid(row=1, column=0, padx=5, pady=5)
+
+    textSimulacion = tk.Text(frame_regresion_sim, wrap="word", width=60)
+    textSimulacion.grid(column=1, row=1, padx=5, pady=5)
+
+    # ---------------------- GRÁFICAS SIMULACIÓN RANDOM FOREST REGRESSOR ----------------------
+    figSRF1, axSRF1 = plt.subplots(figsize=(5, 4))  # Histograma de residuales
+    figSRF2, axSRF2 = plt.subplots(figsize=(5, 4))  # Residuales por patrón
+    figSRF3, axSRF3 = plt.subplots(figsize=(5, 4))  # Dispersión Yd vs Yr
+
+    # Histograma de residuales
+    axSRF1.set_title("Distribución de Residuales (Simulación)")
+    axSRF1.set_xlabel("Error (Yd - Yr)")
+    axSRF1.set_ylabel("Frecuencia")
+    axSRF1.text(0.5, 0.5, "Ejecuta la simulación\npara ver la distribución de errores",
+            ha='center', va='center', transform=axSRF1.transAxes, fontsize=11)
+    figSRF1.tight_layout()
+
+    # Residuales por patrón
+    axSRF2.set_title("Residuales por Patrón (Simulación)")
+    axSRF2.set_xlabel("Índice de patrón")
+    axSRF2.set_ylabel("Error (Yd - Yr)")
+    axSRF2.text(0.5, 0.5, "Ejecuta la simulación\npara ver los residuales",
+            ha='center', va='center', transform=axSRF2.transAxes, fontsize=11)
+    figSRF2.tight_layout()
+
+    # Dispersión Yd vs Yr
+    axSRF3.set_title("Dispersión Yd vs Yr (Simulación)")
+    axSRF3.set_xlabel("Salida Deseada (Yd)")
+    axSRF3.set_ylabel("Salida Obtenida (Yr)")
+    axSRF3.text(0.5, 0.5, "Ejecuta la simulación\npara ver la dispersión",
+            ha='center', va='center', transform=axSRF3.transAxes, fontsize=11)
+    figSRF3.tight_layout()
+
+    canvasSRF1 = FigureCanvasTkAgg(figSRF1, master=frame_random_sim)
+    canvasSRF2 = FigureCanvasTkAgg(figSRF2, master=frame_random_sim)
+    canvasSRF3 = FigureCanvasTkAgg(figSRF3, master=frame_random_sim)
+
+    canvasSRF1.get_tk_widget().grid(row=0, column=0, padx=5, pady=5)
+    canvasSRF2.get_tk_widget().grid(row=0, column=1, padx=5, pady=5)
+    canvasSRF3.get_tk_widget().grid(row=1, column=0, padx=5, pady=5)
+
+    textSimulacionRF = tk.Text(frame_random_sim, wrap="word", width=60)
+    textSimulacionRF.grid(column=1, row=1, padx=5, pady=5)
 
     return root, text_area
 
