@@ -2,12 +2,12 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-def entrenar(X_train, Y_train): 
+def entrenar(X_train, Y_train, n_estimators=200, max_depth=12, random_state=42, n_jobs=-1): 
     modelo_rf = RandomForestRegressor(
-                n_estimators=200,
-                max_depth=12,
-                random_state=42,
-                n_jobs=-1
+                n_estimators=n_estimators,
+                max_depth=max_depth,
+                random_state=random_state,
+                n_jobs=n_jobs
             )
     modelo_rf.fit(X_train, Y_train)
     return modelo_rf

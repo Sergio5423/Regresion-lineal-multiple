@@ -759,6 +759,9 @@ def crear_ventana():
     frame_ent_btn = ttk.LabelFrame(frame_entrenamiento, text="Parámetros del entrenamiento")
     frame_ent_btn.grid(column=0, row=0, columnspan=3, padx=10, pady=10, sticky="ew")
 
+    labelRFArboles = ttk.Label(frame_ent_btn, text="Árboles")
+    inpRFArboles = ttk.Entry(frame_ent_btn, width=8)
+
     opModelos = ["Regresión Lineal Múltiple", "Random Forest Regressor"]
     seleccion_modelo = tk.StringVar()
     ttk.Label(frame_ent_btn, text="Modelo:").grid(column=0, row=0, padx=5, pady=5)
@@ -771,6 +774,16 @@ def crear_ventana():
 
     btnEntrenar = ttk.Button(frame_ent_btn, text="Entrenar", command=entrenar)
     btnEntrenar.grid(column=5, row=0, padx=5, pady=5)
+
+    def actualizar_inputs_rf(*args):
+        if seleccion_modelo.get() == "Random Forest Regressor":
+            labelRFArboles.grid(column=6, row=0, padx=10, pady=5)
+            inpRFArboles.grid(column=7, row=0, padx=5, pady=5)
+        else:
+            labelRFArboles.grid_forget()
+            inpRFArboles.grid_forget()
+
+    #seleccion_modelo.trace('w', actualizar_inputs_rf)
 
     # ---------------------- MÉTRICAS DE REGRESION LINEAL MÚLTIPLE----------------------
     frame_met = ttk.LabelFrame(frame_entrenamiento, text="Métricas de Entrenamiento Regresión Lineal Múltiple")
